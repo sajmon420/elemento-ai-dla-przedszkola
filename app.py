@@ -1,5 +1,4 @@
 import streamlit as st
-pip install -q -U google-genai
 from google import genai
 
 # The client gets the API key from the environment variable `GEMINI_API_KEY`.
