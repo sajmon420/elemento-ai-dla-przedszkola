@@ -1,9 +1,5 @@
 import streamlit as st
 import google.generativeai as genai
-from google.api_core.exceptions import NotFound, InvalidArgument
-
-
-
 
 # ==========================================
 # 1. KONFIGURACJA STRONY I BRANDINGU
@@ -25,85 +21,82 @@ st.markdown('<h1 class="element-title">🌟 Cyfrowy Asystent ELEMENTO</h1>', uns
 st.markdown('<div class="subtitle">Wsparcie Techniczne systemu KSAT 3 dla Przedszkoli (24/7)</div>', unsafe_allow_html=True)
 
 # ==========================================
-# 2. AUTORYZACJA BARDZO BEZPIECZNA
+# 2. AUTORYZACJA KLUCZEM 
 # ==========================================
 try:
     API_KEY = st.secrets["GEMINI_API_KEY"]
     genai.configure(api_key=API_KEY)
 except KeyError:
-    st.error("Błąd: Nie znaleziono klucza API w środowisku chmurowym. Sprawdź opcje (Streamlit settings > Secrets).")
+    st.error("Błąd uwierzytelniania: Klucz GEMINI_API_KEY brakuje w ustawieniach Secrets Twojej aplikacji (Panel w Chmurze Streamlita).")
     st.stop()
 
 # ==========================================
-# 3. SYSTEM PROMPT (Logika / Rola AI)
+# 3. PANCERNA DEFINICJA SILNIKA
 # ==========================================
 system_instruction = """
-Jesteś "Cyfrową Asystentką ELEMENTO", cierpliwym wsparciem technicznym dla placówek przedszkolnych obsługujących system KSAT 3. 
-ZASADY:
-1. Bądź empatyczna, uprzejma ("Cierpliwa Ekspertka") i niezwykle ciepła.
-2. ZAWSZE Uspokajaj w razie błędów w oprogramowaniu i zapewniaj z uśmiechem, że zaraz naprawimy ten mały problem.
-3. Absolutny brak żargonu IT. Bądź wyrazista: podawaj jasne krok 1., krok 2., krok 3. zamiast np. potoku trudnych technicznych zdań.
-4. Używaj Pogrubień (**Opcja X**) do nazw funkcji i elementów interfejsu (żeby było je wyraźnie widać na ekranie programu ksat 3).
-5. POMAGASZ TYLKO W ZAKRESIE ELEMENTO / KSAT 3!
+Jesteś "Cyfrową Asystentką ELEMENTO", niezwykle empatycznym, powolnym (w dobrym znaczeniu, bardzo wnikliwie prowadzonym przez krok po kroku z instrukcjami), niezwykle bezpiecznym w wymowie oraz cierpliwym ekspertem pomocy i ułatwiającym zapleczem operacyjnym dla Systemu Pracownika "KSAT 3". Twoja linia służy placówkom Przedszkolnym z polski do radzenia sobie po programach o interfejsach KSAT. Niezawodnie wita użytkowników ciepłymi emotikonami i potrafi prowadzić ludzi po KSACIE! UŻYwaj bardzo mocnych czysto nietechnicznych opisów; nigdy nic IT-trudnego (zero wyczyść serwer/cachuj API, Pisz użyj F5 na stronie, Puknij w Mysz etc.)
+1) Jeżeli pytanie wymyka się asyście przedszkolno - programowej u KSATA : ODRZUĆ pytania przepisowe etc w miły ucinający sposób od kierownika wsparcia Elemento KSAT 3 IT ("Bazy przepisów kuchni itp.") 
+2) PISZ Wyraziste kropki punktacji - gdzie ma kliknąć na systemie!
+3) Zastępstwo błędom to spokój: BŁAD oznacza informowanie 'Próbuje uspokajać przy wyskoczeniach komunikatów error i radź im wrócić do startu powtórz z oddechem.' To nie panikuj.
 """
 
-# Zainicjalizowanie najstabilniejszej opcji Modelu API dla Streamlit w Europie / wersji AI Studio 
-# Dodajemy model jako funkcję ładowaną po wywołaniu. (gemini-1.5-flash)
+# Kluczowe FIX: dodajemy prefix "models/ i sufiks -latest". Czysto celuje w zablokowaną lub nowszą chmurę serwera!
 model = genai.GenerativeModel(
-    model_name="gemini-1.5-flash",
+    model_name="models/gemini-1.5-flash-latest",
     system_instruction=system_instruction
 )
 
 # ==========================================
-# 4. START i STATE CZATU Z RĘCZNYM ZAPISEM (Ominięcie Problemów ze zgubieniem Modelu przez RAM streamlita)
+# 4. OBSŁUGA CZATU UI W STATELESS FRONTEND 
 # ==========================================
-if "chat" not in st.session_state:
-    st.session_state.chat = model.start_chat(history=[])
-
+# Bez zbędnego buforowania ChatObject. Czysto przechowujemy wpisy.
 if "messages" not in st.session_state:
     st.session_state.messages = [
-        {"role": "model", "content": "Dzień dobry! 👋 Z tej strony Pani Cyfrowa Asystentka wsparcia systemu przedszkolnego **ELEMENTO**.\nJak mogę dzisiaj pomóc, by ułatwić Pani dzień na KSAT 3?"}
+        {"role": "assistant", "content": "Dzień dobry! 👋 Z tej strony Pani Cyfrowa Asystentka z głównego centrum informacyjnego z firmy **ELEMENTO**. Próbujesz odszukać, wystawić albo sklikać trudną tabelę lub problem w okienku oprogramowania **KSAT 3** ? Powoli podpowiedz mi na klawiaturze w dole — Jak ja mogą dziś Pani placówce doradzić lub polepszyć pracę na ten tydzień! 😊"}
     ]
 
-# Mechanizm Streamlit do malowania całego okna rozmowy. 
+# Wizualizacja na UI
 for msg in st.session_state.messages:
-    avatar_icon = "🎓" if msg["role"] == "model" else "👩‍🏫"
+    avatar_icon = "🎓" if msg["role"] == "assistant" else "👩‍🏫"
     with st.chat_message(msg["role"], avatar=avatar_icon):
         st.markdown(msg["content"])
 
 # ==========================================
-# 5. POLE PYTANIA: INPUT FRONTEND-Backend.
+# 5. INPUT I KOMUNIKACJA (Tłumaczymy do struktury REST Google Gemini bez zbędnych mechanik session proxy chatu ) 
 # ==========================================
-if user_prompt := st.chat_input("Proszę wpisać treść lub zadanie (W czym doradzić)..."):
+if user_prompt := st.chat_input("Daj o wszystkim znać, jakie ułatwienie potrzebuje Przedszkole, jak wam coś napisać / rozwiązać błędy lub zapoznać co szukać..."):
     
-    # Krok a) pokazanie użytkownikowi swojego wysłanego textu z dymkiem człowieka "Kluczowym Frontend"
     st.session_state.messages.append({"role": "user", "content": user_prompt})
     with st.chat_message("user", avatar="👩‍🏫"):
         st.markdown(user_prompt)
 
-    # Krok b) Model procesujący + Pancerne Przechwytywanie ERROR-logów by w ostateczności pomóc debuggowi:
-    with st.chat_message("model", avatar="🎓"):
+    # Konstruujemy tymczasową paczkę logarytmiczno-strukturalną do Wrzucenia bezpośredniego AI (Tego formatu w czacie wymaga Google Api)
+    google_api_payload = []
+    
+    # Przebiegamy pętle wszystkich danych dla Google: Uciekamy pierwszą stałą odpowiedź UI Streamlita dla API, gdyż GenerativeLanguage domagałoby się błędu 'brak pierwszej kwestii przez czata_usera'. AI wcale tam nie wymaga historyjki by być wykwintnym AI botem - dodajemy wszystko prócz zrzutu sztucznego tekstu!
+    for msg in st.session_state.messages:
+        # Wysłanie UI starta się tu 
+        if msg["content"].startswith("Dzień dobry! 👋 Z tej strony Pani"): continue
+        api_role = "user" if msg["role"] == "user" else "model"
+        google_api_payload.append({"role": api_role, "parts": [msg["content"]]})
+        
+    # Reakcja (odpytywanie całkowicie generatywnie wolnego endpointa - Brak tu starych przerw 404 proxy!!)
+    with st.chat_message("assistant", avatar="🎓"):
         try:
-            with st.spinner("Cyfrowa asystentka Elemento analizuje odpowiedź dla Pani placówki, prosimy sekundę odczekać..."):
-                response = st.session_state.chat.send_message(user_prompt)
+            with st.spinner("Przeszukuję bezpieczne, opatrzone wpisem i wygenerowane informatorstwa o wciśnięciu... Zaraz przygotuje wiersze dla Panstwa: 🔎!"):
+                # Rozwiązanie "BULLDOŻER", omija skłonny błędom Wrapper Python-API dla session chata przesiadając z modelowania payloading REST. 
+                response = model.generate_content(google_api_payload)
                 st.markdown(response.text)
                 
-            st.session_state.messages.append({"role": "model", "content": response.text})
+            # Zatwierdza odgłos czata AI UI do podbudówki Frontu:
+            st.session_state.messages.append({"role": "assistant", "content": response.text})
+            
+        except Exception as api_bug:
+             # Bardziej ukierunkowane zbieranie do ominięcia ryczałtowych ustaleń po naprawach chmury
+             st.error(f"Sztuczna chmurka zgłosiła brak stabilności i przydźwięk! : Kod Płyty do raportów ELEMENTO: {str(api_bug)}... Za odświeżenie spróbuje pomimo trudu i przekaże!")
 
-        # ZŁAPANIE TYPOWEGO BŁĘDU, BY NIE POPSUĆ KLIENTOWI PROGRAMU CHMURY A PODRZUCIĆ WYJAŚNIENIE: 
-        except NotFound:
-            # Reaguje jeśli dany Region Projektu Google AI nie miał dostępu do gemini-1.5 i rzucił log "404 Not Found API route".
-            st.error("""
-            **Komunikat wewnętrzny - Tryb Diagnozy IT**
-            Nasz Model poinformował chmurę o błędzie *BrakDostępuDoEndpointu/NotFound*. W systemie Gemini API Studio mogły zaciąć się parametry `generate_content`. 
-            Upewnij się czy Twój wygenerowany *Klucz Google API Studio (w settings cloudach Streamlit > Secrets)*, faktycznie wspiera model: `gemini-1.5-flash` w udostępnionych Regionach i czy podłączyłeś go poprawnie do rachunków w "Platform Console Google". 
-            Wróć po restarcie lub spróbuj za parę minut ponownie odświeżając system przyciskiem w panelu "Clear cache" albo F5.
-            """)
-        except Exception as general_err:
-             st.error(f"⚠️ Asystentka z zamyśleniem odrzuciła podane pakiety bazy danych! Kod błędu: \n`{str(general_err)}`\n(Dajcie mu sekundę i napiszcie swoje pytani raz jeszcze)")
-
-# Prawa sekcja (Estetyczny panel z informacją wspierania przedszkola 02 - opcja z usunięciem wbudowanego sidebar na biało dla lżejszego view)
+# Podpis Paskowy (Sidebar / Płyty Ciemnej chatu na streamlite panel settings informativ panel Elementos.)
 st.sidebar.markdown("---")
 st.sidebar.markdown("💼 **Dedykowane wsparcie Systemów ELEMENTO**")
-st.sidebar.caption("💡 Z myślą o nietechnicznej ochronie i ulepszonym bezpieczeństwu wszystkich zgromadzonych pracowniczek opartych i korzystających ze śladów **oprogramowania placówek KSAT3**!")
-st.sidebar.info("Moduł bazujący silnik API: *Google Generative v-1.5Flash-Stable-Tech*.")
+st.sidebar.caption("Zintegrowano celem wylepszonej asysty na placówki nietechniczne chronione nadużywaniem niejednoznacznej architektury Systematyki Związku programatorow-aplikatów placówkach: *ELEMENT-APP* — przedszkole-błędy-kroki")
+st.sidebar.info("Moduł na zrewidowany silnik asystencyjnej pracy dla REST:\n *google API-Model [Models Flash Latest]-Wycinka-Proxy-*")
