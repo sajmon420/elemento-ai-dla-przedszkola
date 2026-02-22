@@ -1,5 +1,4 @@
 import streamlit as st
-from google import genai
 import google.generativeai as genai
 from google.api_core.exceptions import NotFound, InvalidArgument
 
